@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
     const base64Data = buffer.toString('base64');
 
     try {
-      // Use Gemini 2.0 Flash for multimodal document processing
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+      // Use Gemini 2.5 Flash for multimodal document processing
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
       const prompt = `
 You are an expert educator and content simplifier. Transform the following PDF document (which may contain text, images, diagrams, charts, tables, and other visual elements) into a comprehensive, detailed study document that explains everything in simple terms with real-world examples.

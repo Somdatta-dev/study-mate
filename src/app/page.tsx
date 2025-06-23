@@ -385,7 +385,7 @@ export default function Home() {
               </div>
               <h4 className="text-lg font-semibold text-white mb-2">Multimodal AI</h4>
               <p className="text-gray-400">
-                Uses Google Gemini 2.0 Flash for intelligent analysis of text, images, diagrams, and charts
+                Uses Google Gemini 2.5 Flash for intelligent analysis of text, images, diagrams, and charts
               </p>
             </div>
             <div className="text-center">
