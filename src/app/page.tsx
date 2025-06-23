@@ -118,6 +118,7 @@ export default function Home() {
 
     try {
       console.log('Starting PDF download...');
+      console.log('Study document length:', studyDocument.length);
       
       const response = await fetch('/api/download-pdf', {
         method: 'POST',
@@ -125,59 +126,93 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ content: studyDocument }),
+      }).catch(fetchError => {
+        console.error('Fetch error:', fetchError);
+        throw new Error(`Network error: ${fetchError.message}`);
       });
 
       console.log('Response received:', response.status, response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
-        const errorText = await response.text();
+        let errorText;
+        try {
+          errorText = await response.text();
+        } catch {
+          errorText = 'Unable to read error response';
+        }
         console.error('PDF generation failed:', errorText);
-        throw new Error(`Failed to generate PDF: ${response.status}`);
+        throw new Error(`Failed to generate PDF: ${response.status} - ${errorText}`);
       }
 
-      // Check if the response is actually a PDF
-      const contentType = response.headers.get('content-type');
-      console.log('Content-Type:', contentType);
-      
-      if (!contentType || !contentType.includes('application/pdf')) {
-        console.error('Invalid response type:', contentType);
-        throw new Error('Invalid response format');
+      // Get the response as blob
+      let blob;
+      try {
+        blob = await response.blob();
+        console.log('Blob created successfully:', {
+          size: blob.size,
+          type: blob.type,
+          constructor: blob.constructor.name
+        });
+      } catch (blobError) {
+        console.error('Error creating blob:', blobError);
+        const errorMessage = blobError instanceof Error ? blobError.message : 'Unknown blob error';
+        throw new Error(`Failed to process PDF response: ${errorMessage}`);
       }
-
-      const blob = await response.blob();
-      console.log('Blob created, size:', blob.size);
       
       // Verify blob size
       if (blob.size === 0) {
         throw new Error('Empty PDF file generated');
       }
 
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `study-document-${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      
-      console.log('Download initiated successfully');
-
-      // Clean up
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        if (document.body.contains(a)) {
-          document.body.removeChild(a);
-        }
-      }, 1000);
-
-      // Show success message without alert to avoid interrupting download
-      console.log('PDF downloaded successfully');
-      setDownloadSuccess(true);
-      setTimeout(() => setDownloadSuccess(false), 3000);
+      // Create download using modern approach with better error handling
+      try {
+        console.log('Creating object URL...');
+        const url = URL.createObjectURL(blob);
+        console.log('Object URL created:', url);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `study-document-${new Date().toISOString().split('T')[0]}.pdf`;
+        a.style.display = 'none';
+        
+        console.log('Adding link to DOM and triggering click...');
+        document.body.appendChild(a);
+        a.click();
+        
+        // Small delay before cleanup
+        setTimeout(() => {
+          try {
+            if (document.body.contains(a)) {
+              document.body.removeChild(a);
+            }
+            URL.revokeObjectURL(url);
+            console.log('Cleanup completed');
+          } catch (cleanupError) {
+            console.warn('Cleanup error (non-critical):', cleanupError);
+          }
+        }, 100);
+        
+        console.log('PDF download initiated successfully');
+        setDownloadSuccess(true);
+        setTimeout(() => setDownloadSuccess(false), 3000);
+        
+      } catch (downloadError) {
+        console.error('Error during download process:', downloadError);
+        const errorMessage = downloadError instanceof Error ? downloadError.message : 'Unknown download error';
+        throw new Error(`Failed to initiate download: ${errorMessage}`);
+      }
       
     } catch (error) {
-      console.error('Error downloading PDF:', error);
-      alert(`Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Complete error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
+      
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to download PDF: ${errorMessage}`);
     } finally {
       setDownloadingPDF(false);
     }
@@ -201,8 +236,8 @@ export default function Home() {
             <h1 className="text-4xl font-bold text-white">Study Mate</h1>
           </div>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-            Transform your PDFs into simplified study documents using AI. 
-            Upload any PDF and get a detailed, easy-to-understand study guide in minutes.
+            Transform your PDFs (including images, diagrams, and charts) into simplified study documents using AI. 
+            Upload any PDF and get a detailed, easy-to-understand study guide that explains all visual content in minutes.
           </p>
         </div>
 
@@ -341,25 +376,25 @@ export default function Home() {
         {/* Features Section */}
         <div className="mt-16 bg-gray-800 rounded-2xl shadow-xl p-8 border border-gray-700">
           <h3 className="text-2xl font-semibold text-white text-center mb-8">
-            Why Choose Study Mate?
+            Your Personal Study Mate
           </h3>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-indigo-900 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-700">
                 <BookOpen className="w-8 h-8 text-indigo-400" />
               </div>
-              <h4 className="text-lg font-semibold text-white mb-2">AI-Powered</h4>
+              <h4 className="text-lg font-semibold text-white mb-2">Multimodal AI</h4>
               <p className="text-gray-400">
-                Uses Google Gemini 2.5 Flash for intelligent content analysis and simplification
+                Uses Google Gemini 2.0 Flash for intelligent analysis of text, images, diagrams, and charts
               </p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-700">
                 <FileText className="w-8 h-8 text-green-400" />
               </div>
-              <h4 className="text-lg font-semibold text-white mb-2">Simple Language</h4>
+              <h4 className="text-lg font-semibold text-white mb-2">Visual Content Processing</h4>
               <p className="text-gray-400">
-                Converts complex academic content into easy-to-understand study materials
+                Analyzes and explains images, diagrams, charts, and tables alongside text content
               </p>
             </div>
             <div className="text-center">
